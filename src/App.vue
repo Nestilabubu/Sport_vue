@@ -1,47 +1,68 @@
 <script setup>
-import HelloWorld from './components/HelloWorld.vue'
-import TheWelcome from './components/TheWelcome.vue'
+import { computed, provide, ref, watch } from "vue";
+import Header from "./components/Header.vue";
+import Drawer from "./components/Drawer.vue";
+
+const cart = ref([]);
+const drawerOpen = ref(false);
+
+const totalPrice = computed(() =>
+  cart.value.reduce((acc, item) => acc + item.price, 0)
+);
+
+const vatPrice = computed(() => Math.round((totalPrice.value * 5) / 100));
+
+const closeDrawer = () => {
+  drawerOpen.value = false;
+};
+
+const openDrawer = () => {
+  drawerOpen.value = true;
+};
+
+const addToCart = (item) => {
+  const itemWithSize = {
+    ...item,
+    selectedSize: item.size || item.availableSizes?.[0] || "M",
+  };
+  cart.value.push(itemWithSize);
+  item.isAdded = true;
+};
+
+const removeFromCart = (item) => {
+  cart.value.splice(cart.value.indexOf(item), 1);
+  item.isAdded = false;
+};
+
+watch(
+  cart,
+  () => {
+    localStorage.setItem("cart", JSON.stringify(cart.value));
+  },
+  {
+    deep: true,
+  }
+);
+
+provide("cart", {
+  cart,
+  closeDrawer,
+  openDrawer,
+  addToCart,
+  removeFromCart,
+});
 </script>
 
 <template>
-  <header>
-    <img alt="Vue logo" class="logo" src="./assets/logo.svg" width="125" height="125" />
+  <Drawer v-if="drawerOpen" :total-price="totalPrice" :vat-price="vatPrice" />
 
-    <div class="wrapper">
-      <HelloWorld msg="You did it!" />
+  <div
+    class="bg-white w-5/6 m-auto rounded-xl shadow-xl mt-10"
+    :class="{ 'opacity-70': drawerOpen }"
+  >
+    <Header :total-price="totalPrice" @open-drawer="openDrawer" />
+    <div class="p-10">
+      <router-view></router-view>
     </div>
-  </header>
-
-  <main>
-    <TheWelcome />
-  </main>
+  </div>
 </template>
-
-<style scoped>
-header {
-  line-height: 1.5;
-}
-
-.logo {
-  display: block;
-  margin: 0 auto 2rem;
-}
-
-@media (min-width: 1024px) {
-  header {
-    display: flex;
-    place-items: center;
-    padding-right: calc(var(--section-gap) / 2);
-  }
-
-  .logo {
-    margin: 0 2rem 0 0;
-  }
-
-  header .wrapper {
-    display: flex;
-    place-items: flex-start;
-    flex-wrap: wrap;
-  }
-}
-</style>
