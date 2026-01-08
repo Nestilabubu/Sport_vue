@@ -1,15 +1,34 @@
 <script setup>
+import { computed } from "vue";
+
 defineProps({
   totalPrice: Number,
 });
 
 const emit = defineEmits(["openDrawer"]);
+
+const getCurrentUser = () => {
+  const currentUser = JSON.parse(
+    localStorage.getItem("current_user") || "null"
+  );
+  if (currentUser) return currentUser;
+
+  const oldUser = JSON.parse(localStorage.getItem("user") || "null");
+  if (oldUser) {
+    localStorage.setItem("current_user", JSON.stringify(oldUser));
+    return oldUser;
+  }
+
+  return null;
+};
+
+const user = computed(() => getCurrentUser());
 </script>
 
 <template>
   <header class="flex justify-between border-b border-slate-200 px-10 py-8">
     <router-link to="/">
-      <div class="flex items-center cursor:pointer gap-4">
+      <div class="flex items-center cursor-pointer gap-4">
         <img src="/logo.png" alt="logo" class="w-20" />
         <div>
           <h2 class="text-xl font-bold uppercase">SportStyle</h2>
@@ -19,22 +38,73 @@ const emit = defineEmits(["openDrawer"]);
     </router-link>
 
     <ul class="flex items-center gap-10">
-      <li
-        @click="() => emit('openDrawer')"
-        class="flex items-center cursor-pointer gap-3 text-gray-500 hover:text-black transition-colors"
-      >
-        <img src="/cart.svg" alt="Cart" class="filter brightness-90" />
-        <b class="text-gray-500">{{ totalPrice }} руб.</b>
+      <template v-if="user">
+        <li>
+          <router-link to="/profile">
+            <div
+              class="flex items-center gap-3 text-gray-600 hover:text-black transition-colors group"
+            >
+              <div
+                class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center group-hover:bg-blue-200 transition"
+              >
+                <span class="text-blue-600 font-medium">{{
+                  user.fullName?.[0] || "U"
+                }}</span>
+              </div>
+              <div>
+                <p class="font-medium">
+                  {{ user.fullName?.split(" ")[0] || "Профиль" }}
+                </p>
+                <p class="text-xs text-gray-500">Мой профиль</p>
+              </div>
+            </div>
+          </router-link>
+        </li>
+      </template>
+
+      <template v-else>
+        <li>
+          <router-link
+            to="/login"
+            class="flex items-center gap-3 text-gray-500 hover:text-black transition-colors"
+          >
+            <svg
+              class="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"
+              />
+            </svg>
+            <span>Войти</span>
+          </router-link>
+        </li>
+      </template>
+
+      <li>
+        <div
+          @click="() => emit('openDrawer')"
+          class="flex items-center cursor-pointer gap-3 text-gray-500 hover:text-black transition-colors"
+        >
+          <img src="/cart.svg" alt="Cart" class="filter brightness-90" />
+          <b class="text-gray-500">{{ totalPrice }} руб.</b>
+        </div>
       </li>
 
-      <router-link to="/favorites">
-        <li
+      <li>
+        <router-link
+          to="/favorites"
           class="flex items-center gap-3 text-gray-500 hover:text-black transition-colors"
         >
           <img src="/heart.svg" alt="Favorites" class="filter brightness-90" />
           <span>Закладки</span>
-        </li>
-      </router-link>
+        </router-link>
+      </li>
     </ul>
   </header>
 </template>
