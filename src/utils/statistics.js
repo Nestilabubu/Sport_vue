@@ -1,111 +1,94 @@
-import axios from "axios";
-
-const API_URL = "https://5c4f68a7b58c636d.mokky.dev";
-
-// Рассчитать статистику из заказов
-export async function calculateStatisticsFromOrders(userId) {
+export const updateOrderStatistics = (userId, orderData) => {
   try {
-    // Получаем все заказы пользователя
-    const { data: orders } = await axios.get(
-      `${API_URL}/orders?user_id=${userId}`
-    );
+    const savedStats = localStorage.getItem(`user_stats_${userId}`);
+    let userStats = savedStats ? JSON.parse(savedStats) : null;
 
-    if (orders.length === 0) {
-      return {
+    if (!userStats) {
+      userStats = {
+        user_id: userId,
         totalOrders: 0,
         totalSpent: 0,
-        totalItems: 0,
         averageOrder: 0,
-        favoriteCategory: "Нет данных",
-        lastOrderDate: null,
-        activityLevel: "Новичок",
+        favoriteCategory: null,
+        totalItemsBought: 0,
+        totalUniqueItems: 0,
+        categoryStats: {},
+        lastUpdated: new Date().toISOString(),
       };
     }
 
-    // Считаем статистику
-    let totalSpent = 0;
-    let totalItems = 0;
-    const categories = {};
+    userStats.totalOrders += 1;
+    userStats.totalSpent += orderData.totalPrice;
+    userStats.averageOrder = userStats.totalSpent / userStats.totalOrders;
 
-    orders.forEach((order) => {
-      totalSpent += order.totalPrice;
-      totalItems += order.items.length;
+    const orderItemsCount = orderData.totalItems || 1;
+    userStats.totalItemsBought += orderItemsCount;
+    userStats.totalUniqueItems += orderData.items.length;
 
-      order.items.forEach((item) => {
-        if (item.category) {
-          categories[item.category] = (categories[item.category] || 0) + 1;
+    const categoryCounts = {};
+
+    orderData.items.forEach((item) => {
+      const quantity = item.quantity || 1;
+
+      if (item.category) {
+        categoryCounts[item.category] =
+          (categoryCounts[item.category] || 0) + quantity;
+
+        if (!userStats.categoryStats) {
+          userStats.categoryStats = {};
         }
-      });
+
+        if (!userStats.categoryStats[item.category]) {
+          userStats.categoryStats[item.category] = {
+            count: 0,
+            totalSpent: 0,
+          };
+        }
+
+        userStats.categoryStats[item.category].count += quantity;
+        userStats.categoryStats[item.category].totalSpent +=
+          item.price * quantity;
+      }
     });
 
-    // Находим любимую категорию
-    let favoriteCategory = "Нет данных";
-    if (Object.keys(categories).length > 0) {
-      favoriteCategory = Object.entries(categories).sort(
-        (a, b) => b[1] - a[1]
-      )[0][0];
-    }
+    let favoriteCategory = null;
+    let maxCount = 0;
 
-    // Последний заказ
-    const sortedOrders = orders.sort(
-      (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
-    );
-    const lastOrderDate = sortedOrders[0]?.createdAt;
+    Object.entries(categoryCounts).forEach(([category, count]) => {
+      if (count > maxCount) {
+        maxCount = count;
+        favoriteCategory = category;
+      }
+    });
 
-    // Уровень активности
-    const totalOrders = orders.length;
-    const averageOrder = totalSpent / totalOrders;
+    userStats.favoriteCategory = favoriteCategory;
+    userStats.lastUpdated = new Date().toISOString();
 
-    let activityLevel = "Новичок";
-    if (totalOrders >= 10) activityLevel = "Постоянный клиент";
-    else if (totalOrders >= 5) activityLevel = "Активный покупатель";
-    else if (totalOrders >= 3) activityLevel = "Начинающий покупатель";
-    else if (totalOrders >= 1) activityLevel = "Первый заказ";
+    localStorage.setItem(`user_stats_${userId}`, JSON.stringify(userStats));
 
-    return {
-      totalOrders,
-      totalSpent,
-      totalItems,
-      averageOrder: Math.round(averageOrder),
-      favoriteCategory,
-      categoryCounts: categories,
-      lastOrderDate,
-      lastOrderAmount: sortedOrders[0]?.totalPrice,
-      activityLevel,
-      createdAt: sortedOrders[sortedOrders.length - 1]?.createdAt,
-      updatedAt: new Date().toISOString(),
-    };
+    console.log("Статистика обновлена (localStorage):", userStats);
+    return userStats;
   } catch (error) {
-    console.error("Ошибка расчета статистики:", error);
-    return {
-      totalOrders: 0,
-      totalSpent: 0,
-      totalItems: 0,
-      averageOrder: 0,
-      favoriteCategory: "Нет данных",
-      lastOrderDate: null,
-      activityLevel: "Новичок",
-    };
+    console.error("Ошибка обновления статистики:", error);
+    throw error;
   }
-}
+};
 
-// Получить статистику (аналоги предыдущим функциям)
-export async function getExtendedStatistics(userId) {
-  return await calculateStatisticsFromOrders(userId);
-}
+export const getStatistics = (userId) => {
+  try {
+    const savedStats = localStorage.getItem(`user_stats_${userId}`);
+    return savedStats ? JSON.parse(savedStats) : null;
+  } catch (error) {
+    console.error("Ошибка получения статистики:", error);
+    return null;
+  }
+};
 
-// Для совместимости с остальным кодом
-export async function getUserStatistics(userId) {
-  return await calculateStatisticsFromOrders(userId);
-}
-
-export async function updateOrderStatistics(userId, orderData) {
-  // При использовании этого подхода статистика рассчитывается на лету из заказов
-  // Поэтому просто возвращаем обновленную статистику
-  return await calculateStatisticsFromOrders(userId);
-}
-
-export async function updateUserStatistics(userId, statsData) {
-  // В этом подходе статистика не сохраняется отдельно
-  return await calculateStatisticsFromOrders(userId);
-}
+export const resetStatistics = (userId) => {
+  try {
+    localStorage.removeItem(`user_stats_${userId}`);
+    console.log("Статистика сброшена для пользователя:", userId);
+  } catch (error) {
+    console.error("Ошибка сброса статистики:", error);
+  }
+};

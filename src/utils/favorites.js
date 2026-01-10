@@ -1,8 +1,7 @@
-// Система закладок пользователей
+
 
 const FAVORITES_KEY = "sportshop_user_favorites";
 
-// Получить все закладки пользователя
 export function getUserFavorites(userId) {
   try {
     const allFavorites = JSON.parse(
@@ -15,7 +14,6 @@ export function getUserFavorites(userId) {
   }
 }
 
-// Добавить товар в закладки
 export function addToFavorites(userId, item) {
   try {
     const allFavorites = JSON.parse(
@@ -23,7 +21,6 @@ export function addToFavorites(userId, item) {
     );
     const userFavorites = allFavorites[userId] || [];
 
-    // Проверяем, нет ли уже такого товара
     if (!userFavorites.some((fav) => fav.id === item.id)) {
       userFavorites.push({
         ...item,
@@ -41,7 +38,6 @@ export function addToFavorites(userId, item) {
   }
 }
 
-// Удалить товар из закладок
 export function removeFromFavorites(userId, itemId) {
   try {
     const allFavorites = JSON.parse(
@@ -60,7 +56,6 @@ export function removeFromFavorites(userId, itemId) {
   }
 }
 
-// Проверить, есть ли товар в закладках
 export function isItemInFavorites(userId, itemId) {
   try {
     const allFavorites = JSON.parse(
@@ -74,7 +69,6 @@ export function isItemInFavorites(userId, itemId) {
   }
 }
 
-// Получить количество закладок пользователя
 export function getFavoritesCount(userId) {
   try {
     const allFavorites = JSON.parse(
@@ -88,7 +82,6 @@ export function getFavoritesCount(userId) {
   }
 }
 
-// Очистить все закладки пользователя
 export function clearUserFavorites(userId) {
   try {
     const allFavorites = JSON.parse(

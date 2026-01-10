@@ -18,7 +18,6 @@ const emit = defineEmits(["update:favorite"]);
 
 const visibleFavoriteButton = Boolean(props.onClickFav);
 const selectedSize = ref(props.availableSizes?.[0] || "");
-// Локальное состояние для избранного
 const localIsFavorite = ref(props.isFavorite);
 
 watch(selectedSize, (newSize) => {
@@ -31,7 +30,6 @@ watch(selectedSize, (newSize) => {
   }
 });
 
-// Обновляем локальное состояние при изменении пропса
 watch(
   () => props.isFavorite,
   (newVal) => {
@@ -61,10 +59,8 @@ const categoryColor = computed(() => {
   }
 });
 
-// Обработчик клика по закладке
 const handleFavClick = () => {
   if (props.onClickFav) {
-    // Инвертируем состояние перед вызовом функции
     localIsFavorite.value = !localIsFavorite.value;
     props.onClickFav();
   }

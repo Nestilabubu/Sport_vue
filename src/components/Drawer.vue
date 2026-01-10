@@ -1,7 +1,6 @@
 <script setup>
 import { inject, ref } from "vue";
 import { useRouter } from "vue-router";
-import axios from "axios";
 import { updateOrderStatistics } from "../utils/statistics";
 
 const router = useRouter();
@@ -11,12 +10,25 @@ const props = defineProps({
   vatPrice: Number,
 });
 
-const { cart, closeDrawer, removeFromCart } = inject("cart");
+const { cart, closeDrawer, removeFromCart, updateCartQuantity } = inject("cart");
 
 const isCreatingOrder = ref(false);
 
 const getCurrentUser = () => {
   return JSON.parse(localStorage.getItem("current_user") || "null");
+};
+
+const increaseQuantity = (item) => {
+  updateCartQuantity(item, (item.quantity || 1) + 1);
+};
+
+const decreaseQuantity = (item) => {
+  const currentQuantity = item.quantity || 1;
+  if (currentQuantity > 1) {
+    updateCartQuantity(item, currentQuantity - 1);
+  } else {
+    removeFromCart(item);
+  }
 };
 
 const createOrder = async () => {
@@ -32,45 +44,55 @@ const createOrder = async () => {
       return;
     }
 
+    const totalItemsCount = cart.value.reduce((total, item) => total + (item.quantity || 1), 0);
+
     const orderData = {
+      id: Date.now(),
       user_id: user.id,
       items: cart.value.map((item) => ({
         id: item.id,
         title: item.title,
         price: item.price,
+        quantity: item.quantity || 1,
         imageUrl: item.imageUrl,
         selectedSize: item.selectedSize,
         category: item.category,
+        itemTotal: item.price * (item.quantity || 1),
       })),
       totalPrice: props.totalPrice,
+      totalItems: totalItemsCount,
       address: user.address || "Не указан",
       createdAt: new Date().toISOString(),
     };
 
-    // Сохраняем заказ
-    const { data: order } = await axios.post(
-      "https://5c4f68a7b58c636d.mokky.dev/orders",
-      orderData
-    );
+    const savedOrders = JSON.parse(localStorage.getItem(`user_orders_${user.id}`) || '[]');
+    savedOrders.push(orderData);
+    localStorage.setItem(`user_orders_${user.id}`, JSON.stringify(savedOrders));
 
-    // Обновляем статистику
-    await updateOrderStatistics(user.id, orderData);
+    updateOrderStatistics(user.id, orderData);
 
-    // Очищаем корзину
     cart.value.forEach((item) => {
       item.isAdded = false;
     });
     cart.value = [];
     localStorage.removeItem("cart");
 
-    alert("Заказ успешно оформлен! Статистика обновлена.");
+    alert("✅ Заказ успешно оформлен!\nСтатистика обновлена.\nЗаказ сохранен в вашей истории.");
     closeDrawer();
   } catch (error) {
     console.error("Ошибка создания заказа:", error);
-    alert("Произошла ошибка при оформлении заказа");
+    alert("Произошла ошибка при оформлении заказа. Попробуйте еще раз.");
   } finally {
     isCreatingOrder.value = false;
   }
+};
+
+const totalItems = () => {
+  return cart.value.reduce((total, item) => total + (item.quantity || 1), 0);
+};
+
+const calculateItemTotal = (item) => {
+  return (item.price * (item.quantity || 1)).toLocaleString("ru-RU");
 };
 </script>
 
@@ -80,7 +102,7 @@ const createOrder = async () => {
     @click="closeDrawer"
   ></div>
 
-  <div class="fixed top-0 right-0 h-full w-96 bg-white z-20 p-8 flex flex-col">
+  <div class="fixed top-0 right-0 h-full w-120 bg-white z-20 p-8 flex flex-col">
     <div class="flex items-center justify-between mb-10">
       <h2 class="text-2xl font-bold">Корзина</h2>
       <button
@@ -127,7 +149,7 @@ const createOrder = async () => {
         <div class="space-y-4">
           <div
             v-for="item in cart"
-            :key="item.id + item.selectedSize"
+            :key="item.id + (item.selectedSize || '')"
             class="flex items-center gap-4 border border-gray-200 rounded-xl p-4"
           >
             <img
@@ -138,31 +160,91 @@ const createOrder = async () => {
 
             <div class="flex-1">
               <h4 class="font-medium mb-1">{{ item.title }}</h4>
-              <div class="flex items-center gap-3 text-sm text-gray-600">
+              <div class="flex items-center gap-3 text-sm text-gray-600 mb-2">
                 <span>Размер: {{ item.selectedSize }}</span>
               </div>
-              <div class="flex items-center justify-between mt-2">
-                <span class="font-bold"
-                  >{{ item.price.toLocaleString("ru-RU") }} руб.</span
+
+              <!-- Управление количеством -->
+              <div class="flex items-center justify-between">
+                <div
+                  class="flex items-center border border-gray-300 rounded-lg"
                 >
-                <button
-                  @click="removeFromCart(item)"
-                  class="text-red-500 hover:text-red-700 transition"
-                >
-                  <svg
-                    class="w-5 h-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
+                  <button
+                    @click="decreaseQuantity(item)"
+                    class="w-8 h-8 flex items-center justify-center text-gray-600 hover:bg-gray-100 rounded-l-lg transition"
+                    :class="{
+                      'text-gray-300 cursor-not-allowed':
+                        (item.quantity || 1) <= 1,
+                    }"
                   >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                    />
-                  </svg>
-                </button>
+                    <svg
+                      class="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M20 12H4"
+                      />
+                    </svg>
+                  </button>
+
+                  <span class="w-10 text-center font-medium">
+                    {{ item.quantity || 1 }}
+                  </span>
+
+                  <button
+                    @click="increaseQuantity(item)"
+                    class="w-8 h-8 flex items-center justify-center text-gray-600 hover:bg-gray-100 rounded-r-lg transition"
+                  >
+                    <svg
+                      class="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M12 4v16m8-8H4"
+                      />
+                    </svg>
+                  </button>
+                </div>
+
+                <div class="flex items-center gap-4">
+                  <span class="font-bold text-right min-w-[100px]">
+                    {{ calculateItemTotal(item) }} руб.
+                  </span>
+                  <button
+                    @click="removeFromCart(item)"
+                    class="text-red-500 hover:text-red-700 transition"
+                    title="Удалить"
+                  >
+                    <svg
+                      class="w-5 h-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                      />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Цена за единицу -->
+              <div class="text-xs text-gray-500 mt-1">
+                {{ item.price.toLocaleString("ru-RU") }} руб. / шт
               </div>
             </div>
           </div>
@@ -173,7 +255,7 @@ const createOrder = async () => {
       <div class="border-t border-gray-200 pt-4">
         <div class="space-y-3">
           <div class="flex justify-between text-gray-600">
-            <span>Товары ({{ cart.length }})</span>
+            <span>Товары ({{ totalItems() }})</span>
             <span>{{ totalPrice.toLocaleString("ru-RU") }} руб.</span>
           </div>
           <div class="flex justify-between text-gray-600">
@@ -249,9 +331,8 @@ const createOrder = async () => {
   background: #555;
 }
 
-/* Убедимся, что фиксированная часть не скрывается */
 .flex-1 {
   flex: 1 1 auto;
-  min-height: 0; /* Важно для корректной работы overflow */
+  min-height: 0;
 }
 </style>
