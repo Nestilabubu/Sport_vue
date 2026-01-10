@@ -3,6 +3,11 @@ import axios from "axios";
 import CardList from "../components/CardList.vue";
 import { debounce } from "lodash";
 import { inject, onMounted, reactive, ref, watch } from "vue";
+import {
+  addToFavorites,
+  removeFromFavorites,
+  isItemInFavorites,
+} from "../utils/favorites";
 
 const { addToCart, removeFromCart, cart } = inject("cart");
 
@@ -59,39 +64,45 @@ const resetFilters = () => {
   fetchItems();
 };
 
-const addToFavorite = async (item) => {
+// Получить текущего пользователя
+const getCurrentUser = () => {
+  return JSON.parse(localStorage.getItem("current_user") || "null");
+};
+
+// Функция добавления/удаления из закладок
+const addToFavorite = (item) => {
+  const user = getCurrentUser();
+
+  if (!user) {
+    alert("Пожалуйста, войдите в систему чтобы добавлять в закладки");
+    return;
+  }
+
   try {
     if (!item.isFavorite) {
-      const obj = {
-        item_id: item.id,
-        selectedSize: item.selectedSize || item.availableSizes?.[0] || "",
-      };
-
-      const { data } = await axios.post(
-        "https://5c4f68a7b58c636d.mokky.dev/favorites",
-        obj
-      );
-
-      const itemIndex = items.value.findIndex((i) => i.id === item.id);
-      if (itemIndex !== -1) {
-        items.value[itemIndex].isFavorite = true;
-        items.value[itemIndex].favoritesId = data.id;
-      }
+      // Добавляем в закладки
+      addToFavorites(user.id, item);
+      item.isFavorite = true;
     } else {
-      await axios.delete(
-        `https://5c4f68a7b58c636d.mokky.dev/favorites/${item.favoritesId}`
-      );
-
-      const itemIndex = items.value.findIndex((i) => i.id === item.id);
-      if (itemIndex !== -1) {
-        items.value[itemIndex].isFavorite = false;
-        items.value[itemIndex].favoritesId = null;
-      }
+      // Удаляем из закладок
+      removeFromFavorites(user.id, item.id);
+      item.isFavorite = false;
     }
   } catch (e) {
-    console.error("Ошибка при работе с избранным:", e);
+    console.error("Ошибка при работе с закладками:", e);
     alert("Произошла ошибка. Пожалуйста, попробуйте снова.");
   }
+};
+
+// Проверить, какие товары уже в закладках у пользователя
+const checkFavorites = () => {
+  const user = getCurrentUser();
+  if (!user) return;
+
+  items.value = items.value.map((item) => ({
+    ...item,
+    isFavorite: isItemInFavorites(user.id, item.id),
+  }));
 };
 
 const fetchItems = async () => {
@@ -130,10 +141,12 @@ const fetchItems = async () => {
     items.value = data.map((obj) => ({
       ...obj,
       isFavorite: false,
-      favoritesId: null,
       isAdded: false,
       availableSizes: obj.sizes ? obj.sizes.split(",") : [],
     }));
+
+    // Проверяем закладки после загрузки товаров
+    checkFavorites();
   } catch (e) {
     console.error("Ошибка загрузки товаров с API:", e);
 
@@ -145,7 +158,6 @@ const fetchItems = async () => {
         imageUrl: "https://i.ebayimg.com/images/g/DRwAAOSw1q9l6c3m/s-l500.jpg",
         category: "мужской",
         sizes: "M,L,XL,XXL",
-        color: "синий",
         material: "полиэстер",
         description: "Стильный спортивный костюм для активного отдыха",
       },
@@ -157,7 +169,6 @@ const fetchItems = async () => {
           "https://i.pinimg.com/564x/a0/be/6b/a0be6bf9078e73990c0ed67e5b003b75.jpg",
         category: "женский",
         sizes: "XS,S,M,L",
-        color: "розовый",
         material: "хлопок",
         description: "Удобный костюм для фитнеса и йоги",
       },
@@ -169,7 +180,6 @@ const fetchItems = async () => {
           "https://images.puma.com/image/upload/f_auto,q_auto,b_rgb:fafafa,w_450,h_450/global/584859/01/fnd/EEA/fmt/png/Minicats-Crew-Babies'-Jogger",
         category: "детский",
         sizes: "110,120,130,140",
-        color: "красный",
         material: "полиэстер",
         description: "Яркий костюм для активных детей",
       },
@@ -188,7 +198,7 @@ const fetchItems = async () => {
           item.title.toLowerCase().includes(query) ||
           (item.description &&
             item.description.toLowerCase().includes(query)) ||
-          (item.color && item.color.toLowerCase().includes(query))
+          (item.material && item.material.toLowerCase().includes(query))
       );
     }
 
@@ -215,36 +225,14 @@ const fetchItems = async () => {
     items.value = data.map((obj) => ({
       ...obj,
       isFavorite: false,
-      favoritesId: null,
       isAdded: false,
       availableSizes: obj.sizes ? obj.sizes.split(",") : [],
     }));
+
+    // Проверяем закладки
+    checkFavorites();
   } finally {
     isLoading.value = false;
-  }
-};
-
-const fetchFavorites = async () => {
-  try {
-    const { data: favorites } = await axios.get(
-      "https://5c4f68a7b58c636d.mokky.dev/favorites"
-    );
-
-    items.value = items.value.map((item) => {
-      const favorite = favorites.find(
-        (favorite) => favorite.item_id === item.id
-      );
-      if (!favorite) {
-        return item;
-      }
-      return {
-        ...item,
-        isFavorite: true,
-        favoritesId: favorite.id,
-      };
-    });
-  } catch (e) {
-    console.log("Ошибка загрузки избранных товаров:", e);
   }
 };
 
@@ -262,7 +250,6 @@ onMounted(async () => {
     cart.value = localCart ? JSON.parse(localCart) : [];
 
     await fetchItems();
-    await fetchFavorites();
 
     items.value = items.value.map((item) => ({
       ...item,

@@ -1,115 +1,90 @@
 <script setup>
-import { onMounted, ref } from "vue";
-import axios from "axios";
+import { ref, computed, onMounted } from "vue";
+import { useRouter } from "vue-router";
+import { getUserFavorites, removeFromFavorites } from "../utils/favorites";
 import CardList from "../components/CardList.vue";
+
+const router = useRouter();
 
 const favorites = ref([]);
 const isLoading = ref(true);
 
-onMounted(async () => {
-  try {
-    isLoading.value = true;
+// Получить текущего пользователя
+const getCurrentUser = () => {
+  return JSON.parse(localStorage.getItem("current_user") || "null");
+};
 
-    const { data: favoritesData } = await axios.get(
-      "https://5c4f68a7b58c636d.mokky.dev/favorites"
-    );
+// Загрузить закладки
+const loadFavorites = () => {
+  const user = getCurrentUser();
 
-
-    if (!favoritesData || favoritesData.length === 0) {
-      favorites.value = [];
-      return;
-    }
-
-    const itemIds = favoritesData.map((fav) => fav.item_id);
-
-    const { data: sportsuits } = await axios.get(
-      "https://5c4f68a7b58c636d.mokky.dev/sportsuits"
-    );
-
-
-    const favoriteItems = sportsuits.filter((item) =>
-      itemIds.includes(item.id)
-    );
-
-
-    favorites.value = favoriteItems.map((item) => {
-      const favorite = favoritesData.find((fav) => fav.item_id === item.id);
-
-      let savedSize = favorite?.selectedSize || "";
-
-      if (!savedSize) {
-        const savedSizes = JSON.parse(
-          localStorage.getItem("selectedSizes") || "{}"
-        );
-        savedSize = savedSizes[item.id] || "";
-      }
-
-      const availableSizes = item.sizes ? item.sizes.split(",") : [];
-      if (savedSize && !availableSizes.includes(savedSize)) {
-        savedSize = availableSizes[0] || "";
-      } else if (!savedSize) {
-        savedSize = availableSizes[0] || "";
-      }
-
-      return {
-        ...item,
-        isFavorite: true,
-        favoritesId: favorite?.id || null,
-        availableSizes: availableSizes,
-        selectedSize: savedSize, 
-      };
-    });
-
-  } catch (error) {
-    console.error("Ошибка загрузки избранного:", error);
-    favorites.value = [];
-  } finally {
-    isLoading.value = false;
+  if (!user) {
+    router.push("/login");
+    return;
   }
+
+  const userFavorites = getUserFavorites(user.id);
+
+  // Добавляем флаг isFavorite для каждого товара
+  favorites.value = userFavorites.map((item) => ({
+    ...item,
+    isFavorite: true,
+    isAdded: false,
+    availableSizes: item.sizes ? item.sizes.split(",") : [],
+  }));
+
+  isLoading.value = false;
+};
+
+// Удалить из закладок
+const removeFavorite = (item) => {
+  const user = getCurrentUser();
+  if (user) {
+    favorites.value = removeFromFavorites(user.id, item.id);
+  }
+};
+
+onMounted(() => {
+  loadFavorites();
 });
 </script>
 
 <template>
-  <div>
-    <h2 class="text-3xl font-bold mb-8">Мои закладки</h2>
+  <div class="max-w-6xl mx-auto">
+    <div class="mb-10">
+      <h1 class="text-3xl font-bold text-gray-800">Мои закладки</h1>
+      <p class="text-gray-600 mt-2">
+        Товары, которые вы сохранили для покупки позже
+      </p>
+    </div>
 
     <div v-if="isLoading" class="text-center py-12">
       <div
         class="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"
       ></div>
-      <p class="mt-4 text-gray-600">Загрузка избранного...</p>
+      <p class="mt-4 text-gray-600">Загрузка закладок...</p>
     </div>
 
-    <div v-else-if="favorites.length === 0" class="text-center py-12">
-      <div class="text-5xl mb-4 opacity-60">❤️</div>
-      <h3 class="text-xl font-semibold mb-2 text-gray-700">
-        Закладок пока нет
-      </h3>
-      <p class="text-gray-500 max-w-md mx-auto">
-        Добавляйте понравившиеся спортивные костюмы в избранное, нажимая на
-        сердечко ❤️
+    <div v-else-if="!favorites.length" class="text-center py-12">
+      <div class="text-4xl mb-4">⭐</div>
+      <h3 class="text-xl font-semibold mb-2">Закладок пока нет</h3>
+      <p class="text-gray-600 mb-6">
+        Добавляйте понравившиеся товары в закладки
       </p>
       <router-link
         to="/"
-        class="inline-block mt-6 px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition font-medium"
+        class="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
       >
         Перейти к покупкам
       </router-link>
     </div>
 
     <div v-else>
-      <p class="text-gray-600 mb-6">
-        Найдено {{ favorites.length }}
-        {{
-          favorites.length === 1
-            ? "товар"
-            : favorites.length > 1 && favorites.length < 5
-            ? "товара"
-            : "товаров"
-        }}
-        в избранном
-      </p>
-      <CardList :items="favorites" :is-favorites="true" />
+      <CardList
+        :items="favorites"
+        is-favorites
+        @add-to-favorite="removeFavorite"
+      />
     </div>
   </div>
 </template>

@@ -12,11 +12,14 @@ const props = defineProps({
   onClickFav: Function,
   category: String,
   availableSizes: Array,
-  color: String,
 });
+
+const emit = defineEmits(["update:favorite"]);
 
 const visibleFavoriteButton = Boolean(props.onClickFav);
 const selectedSize = ref(props.availableSizes?.[0] || "");
+// Локальное состояние для избранного
+const localIsFavorite = ref(props.isFavorite);
 
 watch(selectedSize, (newSize) => {
   if (props.id) {
@@ -27,6 +30,14 @@ watch(selectedSize, (newSize) => {
     localStorage.setItem("selectedSizes", JSON.stringify(savedSizes));
   }
 });
+
+// Обновляем локальное состояние при изменении пропса
+watch(
+  () => props.isFavorite,
+  (newVal) => {
+    localIsFavorite.value = newVal;
+  }
+);
 
 const savedSizes = JSON.parse(localStorage.getItem("selectedSizes") || "{}");
 if (
@@ -49,6 +60,15 @@ const categoryColor = computed(() => {
       return "bg-gray-100 text-gray-800";
   }
 });
+
+// Обработчик клика по закладке
+const handleFavClick = () => {
+  if (props.onClickFav) {
+    // Инвертируем состояние перед вызовом функции
+    localIsFavorite.value = !localIsFavorite.value;
+    props.onClickFav();
+  }
+};
 </script>
 
 <template>
@@ -65,8 +85,8 @@ const categoryColor = computed(() => {
 
     <img
       v-if="visibleFavoriteButton"
-      @click="onClickFav"
-      :src="!isFavorite ? '/like-1.svg' : '/like-2.svg'"
+      @click="handleFavClick"
+      :src="!localIsFavorite ? '/like-1.svg' : '/like-2.svg'"
       alt="Добавить в избранное"
       class="absolute top-8 right-8 z-10 w-6 h-6 cursor-pointer hover:scale-110 transition"
     />

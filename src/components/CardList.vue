@@ -26,7 +26,6 @@ const handleAddToFavorite = (item) => {
       :price="item.price"
       :img-url="item.imageUrl"
       :category="item.category"
-      :color="item.color"
       :available-sizes="item.availableSizes || []"
       :on-click-add="isFavorites ? null : () => emit('addToCart', item)"
       :on-click-fav="
