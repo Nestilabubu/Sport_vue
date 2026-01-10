@@ -64,12 +64,10 @@ const resetFilters = () => {
   fetchItems();
 };
 
-// Получить текущего пользователя
 const getCurrentUser = () => {
   return JSON.parse(localStorage.getItem("current_user") || "null");
 };
 
-// Функция добавления/удаления из закладок
 const addToFavorite = (item) => {
   const user = getCurrentUser();
 
@@ -80,11 +78,9 @@ const addToFavorite = (item) => {
 
   try {
     if (!item.isFavorite) {
-      // Добавляем в закладки
       addToFavorites(user.id, item);
       item.isFavorite = true;
     } else {
-      // Удаляем из закладок
       removeFromFavorites(user.id, item.id);
       item.isFavorite = false;
     }
@@ -94,7 +90,6 @@ const addToFavorite = (item) => {
   }
 };
 
-// Проверить, какие товары уже в закладках у пользователя
 const checkFavorites = () => {
   const user = getCurrentUser();
   if (!user) return;
@@ -145,7 +140,6 @@ const fetchItems = async () => {
       availableSizes: obj.sizes ? obj.sizes.split(",") : [],
     }));
 
-    // Проверяем закладки после загрузки товаров
     checkFavorites();
   } catch (e) {
     console.error("Ошибка загрузки товаров с API:", e);
@@ -229,7 +223,6 @@ const fetchItems = async () => {
       availableSizes: obj.sizes ? obj.sizes.split(",") : [],
     }));
 
-    // Проверяем закладки
     checkFavorites();
   } finally {
     isLoading.value = false;
@@ -268,6 +261,7 @@ watch(cart, () => {
 });
 
 watch(filters, fetchItems);
+
 </script>
 
 <template>

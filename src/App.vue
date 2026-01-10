@@ -6,8 +6,13 @@ import Drawer from "./components/Drawer.vue";
 const cart = ref([]);
 const drawerOpen = ref(false);
 
+const savedCart = localStorage.getItem("cart");
+if (savedCart) {
+  cart.value = JSON.parse(savedCart);
+}
+
 const totalPrice = computed(() =>
-  cart.value.reduce((acc, item) => acc + item.price, 0)
+  cart.value.reduce((acc, item) => acc + item.price * (item.quantity || 1), 0)
 );
 
 const vatPrice = computed(() => Math.round((totalPrice.value * 5) / 100));
@@ -21,17 +26,51 @@ const openDrawer = () => {
 };
 
 const addToCart = (item) => {
-  const itemWithSize = {
-    ...item,
-    selectedSize: item.size || item.availableSizes?.[0] || "M",
-  };
-  cart.value.push(itemWithSize);
+  const existingItem = cart.value.find(
+    (cartItem) =>
+      cartItem.id === item.id && cartItem.selectedSize === item.selectedSize
+  );
+
+  if (existingItem) {
+    existingItem.quantity = (existingItem.quantity || 1) + 1;
+  } else {
+    const itemWithSize = {
+      ...item,
+      selectedSize:
+        item.selectedSize || item.size || item.availableSizes?.[0] || "M",
+      quantity: 1,
+    };
+    cart.value.push(itemWithSize);
+  }
+
   item.isAdded = true;
 };
 
 const removeFromCart = (item) => {
-  cart.value.splice(cart.value.indexOf(item), 1);
-  item.isAdded = false;
+  const itemIndex = cart.value.findIndex(
+    (cartItem) =>
+      cartItem.id === item.id && cartItem.selectedSize === item.selectedSize
+  );
+
+  if (itemIndex !== -1) {
+    cart.value.splice(itemIndex, 1);
+    item.isAdded = false;
+  }
+};
+
+const updateCartQuantity = (item, newQuantity) => {
+  const existingItem = cart.value.find(
+    (cartItem) =>
+      cartItem.id === item.id && cartItem.selectedSize === item.selectedSize
+  );
+
+  if (existingItem) {
+    if (newQuantity < 1) {
+      removeFromCart(item);
+    } else {
+      existingItem.quantity = newQuantity;
+    }
+  }
 };
 
 watch(
@@ -50,6 +89,7 @@ provide("cart", {
   openDrawer,
   addToCart,
   removeFromCart,
+  updateCartQuantity,
 });
 </script>
 

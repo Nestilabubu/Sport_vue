@@ -27,7 +27,6 @@ const getCurrentUser = () => {
   return null;
 };
 
-// Обновляем пользователя при монтировании
 const updateUser = () => {
   user.value = getCurrentUser();
 };
@@ -35,7 +34,6 @@ const updateUser = () => {
 onMounted(() => {
   updateUser();
 
-  // Обновляем при навигации
   router.afterEach(() => {
     setTimeout(updateUser, 100);
   });

@@ -9,12 +9,10 @@ const router = useRouter();
 const favorites = ref([]);
 const isLoading = ref(true);
 
-// Получить текущего пользователя
 const getCurrentUser = () => {
   return JSON.parse(localStorage.getItem("current_user") || "null");
 };
 
-// Загрузить закладки
 const loadFavorites = () => {
   const user = getCurrentUser();
 
@@ -25,7 +23,6 @@ const loadFavorites = () => {
 
   const userFavorites = getUserFavorites(user.id);
 
-  // Добавляем флаг isFavorite для каждого товара
   favorites.value = userFavorites.map((item) => ({
     ...item,
     isFavorite: true,
@@ -36,7 +33,6 @@ const loadFavorites = () => {
   isLoading.value = false;
 };
 
-// Удалить из закладок
 const removeFavorite = (item) => {
   const user = getCurrentUser();
   if (user) {
@@ -47,6 +43,8 @@ const removeFavorite = (item) => {
 onMounted(() => {
   loadFavorites();
 });
+
+
 </script>
 
 <template>
