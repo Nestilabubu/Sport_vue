@@ -1,11 +1,16 @@
 <script setup>
-import { computed } from "vue";
+import { ref, onMounted } from "vue";
+import { useRouter } from "vue-router";
+
+const router = useRouter();
 
 defineProps({
   totalPrice: Number,
 });
 
 const emit = defineEmits(["openDrawer"]);
+
+const user = ref(null);
 
 const getCurrentUser = () => {
   const currentUser = JSON.parse(
@@ -22,7 +27,19 @@ const getCurrentUser = () => {
   return null;
 };
 
-const user = computed(() => getCurrentUser());
+// Обновляем пользователя при монтировании
+const updateUser = () => {
+  user.value = getCurrentUser();
+};
+
+onMounted(() => {
+  updateUser();
+
+  // Обновляем при навигации
+  router.afterEach(() => {
+    setTimeout(updateUser, 100);
+  });
+});
 </script>
 
 <template>

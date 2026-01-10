@@ -10,7 +10,6 @@ const props = defineProps({
   price: Number,
   size: String,
   category: String,
-  color: String,
 });
 
 const categoryColor = computed(() => {

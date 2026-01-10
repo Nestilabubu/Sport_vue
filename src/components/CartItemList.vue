@@ -16,7 +16,6 @@ const { cart, removeFromCart } = inject(["cart"]);
       :image-url="item.imageUrl"
       :size="item.size || item.selectedSize"
       :category="item.category"
-      :color="item.color"
       @on-click-remove="() => removeFromCart(item)"
     />
   </div>

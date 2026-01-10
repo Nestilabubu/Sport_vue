@@ -2,6 +2,7 @@
 import { ref, computed, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import axios from "axios";
+import { getFavoritesCount } from "../utils/favorites";
 
 const router = useRouter();
 
@@ -26,12 +27,18 @@ const stats = computed(() => {
   const averageOrder =
     orders.value.length > 0 ? totalSpent / orders.value.length : 0;
 
+  // Получаем количество закладок
+  const favoritesCount = user.value ? getFavoritesCount(user.value.id) : 0;
+
   return {
     totalOrders: orders.value.length,
     totalSpent,
     totalItems,
     averageOrder: Math.round(averageOrder),
     favoriteCategory: getFavoriteCategory(),
+    favoritesCount,
+    activityLevel: getActivityLevel(),
+    lastOrderDate: getLastOrderDate(),
   };
 });
 
@@ -49,6 +56,23 @@ function getFavoriteCategory() {
   return mostPopular ? mostPopular[0] : "Нет данных";
 }
 
+function getActivityLevel() {
+  const totalOrders = orders.value.length;
+  if (totalOrders >= 10) return "Постоянный клиент";
+  if (totalOrders >= 5) return "Активный покупатель";
+  if (totalOrders >= 3) return "Начинающий покупатель";
+  if (totalOrders >= 1) return "Первый заказ";
+  return "Новичок";
+}
+
+function getLastOrderDate() {
+  if (orders.value.length === 0) return null;
+  const sortedOrders = [...orders.value].sort(
+    (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+  );
+  return sortedOrders[0].createdAt;
+}
+
 const fetchOrders = async () => {
   try {
     if (!user.value) return;
@@ -57,6 +81,7 @@ const fetchOrders = async () => {
       "https://5c4f68a7b58c636d.mokky.dev/orders"
     );
 
+    // Фильтруем заказы по ID пользователя
     const userOrders = data.filter((order) => order.user_id === user.value.id);
 
     orders.value = userOrders.map((order) => ({
@@ -140,9 +165,8 @@ onMounted(async () => {
   </div>
 
   <div v-else class="max-w-6xl mx-auto">
-    <div
-      class="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl p-8 text-white mb-8"
-    >
+    <!-- Шапка профиля -->
+    <div class="bg-blue-600 rounded-2xl p-8 text-white mb-8 shadow-lg">
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-6">
           <div
@@ -182,6 +206,7 @@ onMounted(async () => {
       </div>
     </div>
 
+    <!-- Навигация по вкладкам -->
     <div class="flex border-b border-gray-200 mb-8">
       <button
         @click="activeTab = 'profile'"
@@ -218,8 +243,10 @@ onMounted(async () => {
       </button>
     </div>
 
+    <!-- Вкладка: Основная информация -->
     <div v-if="activeTab === 'profile'" class="space-y-8">
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <!-- Статистика карточками -->
         <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
           <div class="flex items-center gap-4 mb-4">
             <div
@@ -274,8 +301,33 @@ onMounted(async () => {
           </div>
         </div>
 
+        <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+          <div class="flex items-center gap-4 mb-4">
+            <div
+              class="w-12 h-12 bg-pink-100 rounded-lg flex items-center justify-center"
+            >
+              <svg
+                class="w-6 h-6 text-pink-600"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
+                <path
+                  fill-rule="evenodd"
+                  d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z"
+                  clip-rule="evenodd"
+                />
+              </svg>
+            </div>
+            <div>
+              <p class="text-sm text-gray-600">Закладки</p>
+              <p class="text-2xl font-bold">{{ stats.favoritesCount }}</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Информация пользователя -->
         <div
-          class="md:col-span-2 bg-white p-6 rounded-xl border border-gray-200 shadow-sm"
+          class="md:col-span-3 bg-white p-6 rounded-xl border border-gray-200 shadow-sm"
         >
           <h3 class="text-lg font-semibold mb-4">Личная информация</h3>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -301,6 +353,7 @@ onMounted(async () => {
         </div>
       </div>
 
+      <!-- Кнопка удаления аккаунта -->
       <div class="bg-red-50 border border-red-200 rounded-xl p-6">
         <h3 class="text-lg font-semibold text-red-800 mb-2">Опасная зона</h3>
         <p class="text-red-600 mb-4">
@@ -315,6 +368,7 @@ onMounted(async () => {
       </div>
     </div>
 
+    <!-- Вкладка: Заказы -->
     <div v-else-if="activeTab === 'orders'">
       <div v-if="orders.length === 0" class="text-center py-12">
         <div class="text-4xl mb-4">📦</div>
@@ -334,6 +388,7 @@ onMounted(async () => {
           :key="order.id"
           class="bg-white border border-gray-200 rounded-xl overflow-hidden"
         >
+          <!-- Заголовок заказа -->
           <div
             class="bg-gray-50 px-6 py-4 border-b border-gray-200 flex justify-between items-center"
           >
@@ -351,6 +406,7 @@ onMounted(async () => {
             </div>
           </div>
 
+          <!-- Товары в заказе -->
           <div class="p-6">
             <div class="space-y-4">
               <div
@@ -366,8 +422,8 @@ onMounted(async () => {
                 <div class="flex-1">
                   <h4 class="font-medium">{{ item.title }}</h4>
                   <p class="text-sm text-gray-600">
-                    Размер: {{ item.selectedSize }}, Цвет: {{ item.color }},
-                    Категория: {{ item.category }}
+                    Размер: {{ item.selectedSize }}, Категория:
+                    {{ item.category }}
                   </p>
                 </div>
                 <div class="text-right">
@@ -379,6 +435,7 @@ onMounted(async () => {
               </div>
             </div>
 
+            <!-- Итоги заказа -->
             <div class="mt-6 pt-6 border-t border-gray-200">
               <div class="flex justify-between items-center">
                 <div>
@@ -403,6 +460,7 @@ onMounted(async () => {
       </div>
     </div>
 
+    <!-- Вкладка: Статистика -->
     <div v-else-if="activeTab === 'stats'">
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
@@ -514,6 +572,7 @@ onMounted(async () => {
         </div>
       </div>
 
+      <!-- Дополнительная статистика -->
       <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
         <h3 class="text-lg font-semibold mb-6">Аналитика покупок</h3>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -521,7 +580,7 @@ onMounted(async () => {
             <h4 class="font-medium text-gray-700 mb-3">Популярные категории</h4>
             <div class="space-y-3">
               <div class="flex items-center justify-between">
-                <span class="text-gray-600">Самая популярная:</span>
+                <span class="text-gray-600">Любимая категория:</span>
                 <span class="font-semibold">{{ stats.favoriteCategory }}</span>
               </div>
             </div>
@@ -531,22 +590,32 @@ onMounted(async () => {
             <h4 class="font-medium text-gray-700 mb-3">Активность</h4>
             <div class="space-y-3">
               <div class="flex items-center justify-between">
-                <span class="text-gray-600">Первый заказ:</span>
-                <span class="font-semibold">
-                  {{
-                    orders.length > 0
-                      ? orders[orders.length - 1]?.dateFormatted?.split(",")[0]
-                      : "Нет заказов"
-                  }}
+                <span class="text-gray-600">Уровень активности:</span>
+                <span
+                  :class="{
+                    'font-semibold text-green-600':
+                      stats.activityLevel === 'Постоянный клиент',
+                    'font-semibold text-blue-600':
+                      stats.activityLevel === 'Активный покупатель',
+                    'font-semibold text-yellow-600':
+                      stats.activityLevel === 'Начинающий покупатель',
+                    'font-semibold text-purple-600':
+                      stats.activityLevel === 'Первый заказ',
+                    'font-semibold text-gray-600':
+                      stats.activityLevel === 'Новичок',
+                  }"
+                >
+                  {{ stats.activityLevel }}
                 </span>
               </div>
-              <div class="flex items-center justify-between">
+              <div
+                v-if="stats.lastOrderDate"
+                class="flex items-center justify-between"
+              >
                 <span class="text-gray-600">Последний заказ:</span>
                 <span class="font-semibold">
                   {{
-                    orders.length > 0
-                      ? orders[0]?.dateFormatted?.split(",")[0]
-                      : "Нет заказов"
+                    new Date(stats.lastOrderDate).toLocaleDateString("ru-RU")
                   }}
                 </span>
               </div>
