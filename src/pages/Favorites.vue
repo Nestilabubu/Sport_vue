@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from "vue";
+import { ref, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { getUserFavorites, removeFromFavorites } from "../utils/favorites";
 import CardList from "../components/CardList.vue";
@@ -36,19 +36,18 @@ const loadFavorites = () => {
 const removeFavorite = (item) => {
   const user = getCurrentUser();
   if (user) {
-    favorites.value = removeFromFavorites(user.id, item.id);
+    removeFromFavorites(user.id, item.id);
+    favorites.value = favorites.value.filter((fav) => fav.id !== item.id);
   }
 };
 
 onMounted(() => {
   loadFavorites();
 });
-
-
 </script>
 
 <template>
-  <div class="max-w-6xl mx-auto">
+  <div class="max-w-8xl mx-auto">
     <div class="mb-10">
       <h1 class="text-3xl font-bold text-gray-800">Мои закладки</h1>
       <p class="text-gray-600 mt-2">

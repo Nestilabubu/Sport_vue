@@ -144,7 +144,6 @@ const calculateItemTotal = (item) => {
     </div>
 
     <div v-else class="flex flex-col h-full">
-      <!-- Товары с прокруткой -->
       <div class="flex-1 overflow-y-auto mb-4">
         <div class="space-y-4">
           <div
@@ -164,7 +163,6 @@ const calculateItemTotal = (item) => {
                 <span>Размер: {{ item.selectedSize }}</span>
               </div>
 
-              <!-- Управление количеством -->
               <div class="flex items-center justify-between">
                 <div
                   class="flex items-center border border-gray-300 rounded-lg"
@@ -242,7 +240,6 @@ const calculateItemTotal = (item) => {
                 </div>
               </div>
 
-              <!-- Цена за единицу -->
               <div class="text-xs text-gray-500 mt-1">
                 {{ item.price.toLocaleString("ru-RU") }} руб. / шт
               </div>
@@ -251,7 +248,6 @@ const calculateItemTotal = (item) => {
         </div>
       </div>
 
-      <!-- Фиксированная часть с суммой -->
       <div class="border-t border-gray-200 pt-4">
         <div class="space-y-3">
           <div class="flex justify-between text-gray-600">
@@ -272,7 +268,6 @@ const calculateItemTotal = (item) => {
           </div>
         </div>
 
-        <!-- Кнопка оформления заказа -->
         <div class="mt-6">
           <button
             @click="createOrder"
