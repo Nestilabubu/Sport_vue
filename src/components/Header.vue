@@ -1,8 +1,11 @@
 <script setup>
-import { ref, onMounted } from "vue";
+import { ref, onMounted, watch } from "vue";
 import { useRouter } from "vue-router";
+import { inject } from "vue";
 
 const router = useRouter();
+const { favorites } = inject("favorites");
+const { logout, getCurrentUser } = inject("auth");
 
 defineProps({
   totalPrice: Number,
@@ -12,30 +15,41 @@ const emit = defineEmits(["openDrawer"]);
 
 const user = ref(null);
 
-const getCurrentUser = () => {
-  const currentUser = JSON.parse(
-    localStorage.getItem("current_user") || "null"
-  );
-  if (currentUser) return currentUser;
+const favoritesCount = ref(0);
 
-  const oldUser = JSON.parse(localStorage.getItem("user") || "null");
-  if (oldUser) {
-    localStorage.setItem("current_user", JSON.stringify(oldUser));
-    return oldUser;
+const updateFavoritesCount = () => {
+  if (favorites?.value) {
+    favoritesCount.value = favorites.value.length;
+  } else {
+    favoritesCount.value = 0;
   }
-
-  return null;
 };
 
-const updateUser = () => {
-  user.value = getCurrentUser();
+const handleLogout = () => {
+  logout();
+  user.value = null;
+  router.push("/");
 };
 
 onMounted(() => {
-  updateUser();
+  user.value = getCurrentUser();
+  updateFavoritesCount();
+
+  if (favorites) {
+    watch(() => favorites.value, updateFavoritesCount, { deep: true });
+  }
+
+  watch(
+    () => getCurrentUser(),
+    (newUser) => {
+      user.value = newUser;
+    }
+  );
 
   router.afterEach(() => {
-    setTimeout(updateUser, 100);
+    setTimeout(() => {
+      user.value = getCurrentUser();
+    }, 100);
   });
 });
 </script>
@@ -114,9 +128,21 @@ onMounted(() => {
       <li>
         <router-link
           to="/favorites"
-          class="flex items-center gap-3 text-gray-500 hover:text-black transition-colors"
+          class="flex items-center gap-3 text-gray-500 hover:text-black transition-colors relative"
         >
-          <img src="/heart.svg" alt="Favorites" class="filter brightness-90" />
+          <div class="relative">
+            <img
+              src="/heart.svg"
+              alt="Favorites"
+              class="filter brightness-90"
+            />
+            <span
+              v-if="favoritesCount > 0"
+              class="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center"
+            >
+              {{ favoritesCount }}
+            </span>
+          </div>
           <span>Закладки</span>
         </router-link>
       </li>

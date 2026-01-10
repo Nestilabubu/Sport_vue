@@ -1,9 +1,10 @@
 <script setup>
-import { ref, onMounted } from "vue";
+import { ref, onMounted, computed } from "vue";
 import { useRouter } from "vue-router";
-import { getStatistics } from "../utils/statistics";
+import { inject } from "vue";
 
 const router = useRouter();
+const auth = inject("auth");
 
 const user = ref(null);
 const statistics = ref({});
@@ -12,18 +13,7 @@ const isLoading = ref(true);
 const activeTab = ref("profile");
 
 const getCurrentUser = () => {
-  const currentUser = JSON.parse(
-    localStorage.getItem("current_user") || "null"
-  );
-  if (currentUser) return currentUser;
-
-  const oldUser = JSON.parse(localStorage.getItem("user") || "null");
-  if (oldUser) {
-    localStorage.setItem("current_user", JSON.stringify(oldUser));
-    return oldUser;
-  }
-
-  return null;
+  return auth?.getCurrentUser ? auth.getCurrentUser() : null;
 };
 
 const loadUserData = async () => {
@@ -37,10 +27,9 @@ const loadUserData = async () => {
 
     user.value = currentUser;
 
-    const userStats = getStatistics(currentUser.id);
-
-    if (userStats) {
-      statistics.value = userStats;
+    const savedStats = localStorage.getItem(`user_stats_${currentUser.id}`);
+    if (savedStats) {
+      statistics.value = JSON.parse(savedStats);
     } else {
       statistics.value = {
         totalOrders: 0,
@@ -89,10 +78,14 @@ const calculateCategoryStats = () => {
 };
 
 const logout = () => {
-  localStorage.removeItem("current_user");
-  localStorage.removeItem("user");
-  localStorage.removeItem("cart");
-  localStorage.removeItem("selectedSizes");
+  if (auth?.logout) {
+    auth.logout();
+  } else {
+    localStorage.removeItem("current_user");
+    localStorage.removeItem("user");
+    localStorage.removeItem("cart");
+    localStorage.removeItem("selectedSizes");
+  }
   router.push("/");
 };
 
@@ -144,6 +137,16 @@ const getTabClasses = (tab) => {
   }
 };
 
+const clearStatistics = () => {
+  const currentUser = getCurrentUser();
+  if (currentUser) {
+    localStorage.removeItem(`user_stats_${currentUser.id}`);
+    localStorage.removeItem(`user_orders_${currentUser.id}`);
+    loadUserData();
+    alert("Статистика и история заказов очищены");
+  }
+};
+
 onMounted(() => {
   loadUserData();
 });
@@ -151,8 +154,7 @@ onMounted(() => {
 
 <template>
   <div class="min-h-screen bg-gray-50 py-8">
-    <div class="container mx-auto px-4 max-w-7xl">
-      <!-- Заголовок профиля -->
+    <div class="container mx-auto px-4">
       <div class="mb-8">
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-4">
@@ -170,29 +172,37 @@ onMounted(() => {
               <p class="text-gray-600">Добро пожаловать в ваш профиль</p>
             </div>
           </div>
-          <button
-            @click="logout"
-            class="px-6 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-all duration-200 flex items-center gap-2"
-          >
-            <svg
-              class="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
+          <div class="flex items-center gap-3">
+            <button
+              @click="clearStatistics"
+              class="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-all duration-200 text-sm"
+              v-if="(statistics.totalOrders || 0) > 0"
             >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
-              />
-            </svg>
-            Выйти
-          </button>
+              Очистить статистику
+            </button>
+            <button
+              @click="logout"
+              class="px-6 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-all duration-200 flex items-center gap-2"
+            >
+              <svg
+                class="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                />
+              </svg>
+              Выйти
+            </button>
+          </div>
         </div>
       </div>
 
-      <!-- Табы навигации -->
       <div class="mb-8 border-b border-gray-200">
         <nav class="flex space-x-8">
           <button
@@ -216,16 +226,13 @@ onMounted(() => {
         </nav>
       </div>
 
-      <!-- Загрузка -->
       <div v-if="isLoading" class="flex justify-center items-center h-64">
         <div
           class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"
         ></div>
       </div>
 
-      <!-- Контент профиля -->
       <div v-else>
-        <!-- Вкладка профиля -->
         <div
           v-if="activeTab === 'profile'"
           class="bg-white rounded-xl p-6 shadow"
@@ -279,13 +286,21 @@ onMounted(() => {
               </div>
             </div>
           </div>
+
+          <div class="mt-6 p-4 bg-blue-50 rounded-lg">
+            <p class="text-sm text-blue-600">
+              💡 Данные статистики и заказов хранятся в вашем браузере. Для
+              очистки нажмите кнопку "Очистить статистику" вверху страницы.
+            </p>
+          </div>
         </div>
 
-        <!-- Вкладка статистики -->
         <div v-if="activeTab === 'statistics'" class="space-y-6">
-          <!-- Основная статистика -->
           <div class="bg-white rounded-xl p-6 shadow">
-            <h3 class="text-xl font-bold mb-4">Статистика заказов</h3>
+            <div class="flex justify-between items-center mb-4">
+              <h3 class="text-xl font-bold">Статистика заказов</h3>
+            </div>
+
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div class="bg-blue-50 p-4 rounded-lg">
                 <p class="text-sm text-blue-600">Всего заказов</p>
@@ -293,11 +308,10 @@ onMounted(() => {
                   {{ statistics.totalOrders || 0 }}
                 </p>
               </div>
-              <div class="bg-green-50 p-4 rounded-lg">
-                <p class="text-sm text-green-600">Всего потрачено</p>
-                <p class="text-2xl font-bold">
-                  {{ (statistics.totalSpent || 0).toLocaleString("ru-RU") }}
-                  руб.
+              <div class="bg-pink-50 p-4 rounded-lg">
+                <p class="text-sm text-pink-600">Любимая категория</p>
+                <p class="text-xl font-bold">
+                  {{ statistics.favoriteCategory || "Нет данных" }}
                 </p>
               </div>
               <div class="bg-purple-50 p-4 rounded-lg">
@@ -319,18 +333,12 @@ onMounted(() => {
               </div>
             </div>
 
-            <!-- Дополнительная информация -->
-            <div class="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div class="bg-gray-50 p-4 rounded-lg">
-                <p class="text-sm text-gray-600">Уникальных позиций</p>
-                <p class="text-xl font-bold">
-                  {{ statistics.totalUniqueItems || 0 }}
-                </p>
-              </div>
-              <div class="bg-pink-50 p-4 rounded-lg">
-                <p class="text-sm text-pink-600">Любимая категория</p>
-                <p class="text-xl font-bold">
-                  {{ statistics.favoriteCategory || "Нет данных" }}
+            <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div class="bg-green-50 p-4 rounded-lg">
+                <p class="text-sm text-green-600">Всего потрачено</p>
+                <p class="text-2xl font-bold">
+                  {{ (statistics.totalSpent || 0).toLocaleString("ru-RU") }}
+                  руб.
                 </p>
               </div>
               <div class="bg-indigo-50 p-4 rounded-lg">
@@ -349,7 +357,6 @@ onMounted(() => {
             </div>
           </div>
 
-          <!-- Статистика по категориям -->
           <div
             v-if="
               statistics.categoryStats &&
@@ -384,9 +391,16 @@ onMounted(() => {
               </div>
             </div>
           </div>
+
+          <div v-else class="bg-white rounded-xl p-8 shadow text-center">
+            <div class="text-5xl mb-4">📊</div>
+            <h3 class="text-xl font-bold mb-2">Нет данных по категориям</h3>
+            <p class="text-gray-600 mb-4">
+              Совершите покупки в разных категориях, чтобы увидеть статистику
+            </p>
+          </div>
         </div>
 
-        <!-- Вкладка заказов -->
         <div v-if="activeTab === 'orders'" class="space-y-6">
           <div
             v-if="orders.length === 0"
@@ -411,10 +425,11 @@ onMounted(() => {
               :key="order.id"
               class="bg-white rounded-xl p-6 shadow"
             >
-              <!-- Заголовок заказа -->
               <div class="flex justify-between items-center mb-4">
                 <div>
-                  <h3 class="text-lg font-bold">Заказ #{{ order.id }}</h3>
+                  <h3 class="text-lg font-bold">
+                    Заказ #{{ order.id || order.createdAt }}
+                  </h3>
                   <p class="text-gray-600 text-sm">
                     {{ formatDate(order.createdAt) }}
                   </p>
@@ -434,8 +449,6 @@ onMounted(() => {
                   >
                 </div>
               </div>
-
-              <!-- Товары в заказе -->
               <div class="border border-gray-200 rounded-lg mb-4">
                 <div
                   v-for="(item, index) in order.items"
@@ -473,7 +486,6 @@ onMounted(() => {
                 </div>
               </div>
 
-              <!-- Итого по заказу -->
               <div
                 class="flex justify-between items-center pt-4 border-t border-gray-200"
               >

@@ -72,17 +72,22 @@ const addToFavorite = (item) => {
   const user = getCurrentUser();
 
   if (!user) {
-    alert("Пожалуйста, войдите в систему чтобы добавлять в закладки");
+    alert("Пожалуйста, войдите в систему, чтобы добавлять товары в закладки");
     return;
   }
 
   try {
-    if (!item.isFavorite) {
+    const currentlyFavorite = isItemInFavorites(user.id, item.id);
+
+    if (!currentlyFavorite) {
       addToFavorites(user.id, item);
-      item.isFavorite = true;
     } else {
       removeFromFavorites(user.id, item.id);
-      item.isFavorite = false;
+    }
+
+    const itemIndex = items.value.findIndex((i) => i.id === item.id);
+    if (itemIndex !== -1) {
+      items.value[itemIndex].isFavorite = !currentlyFavorite;
     }
   } catch (e) {
     console.error("Ошибка при работе с закладками:", e);
@@ -230,10 +235,29 @@ const fetchItems = async () => {
 };
 
 const onClickAddPlus = (item) => {
-  if (!item.isAdded) {
-    addToCart(item);
-  } else {
-    removeFromCart(item);
+  const itemIndex = items.value.findIndex((i) => i.id === item.id);
+
+  if (itemIndex !== -1) {
+    const currentlyAdded = items.value[itemIndex].isAdded;
+    const newIsAdded = !currentlyAdded;
+
+    items.value[itemIndex].isAdded = newIsAdded;
+
+    const itemForCart = {
+      id: item.id,
+      title: item.title,
+      price: item.price,
+      imageUrl: item.imageUrl,
+      category: item.category,
+      selectedSize: item.selectedSize || item.availableSizes?.[0] || "M",
+      quantity: 1,
+    };
+
+    if (newIsAdded) {
+      addToCart(itemForCart);
+    } else {
+      removeFromCart(itemForCart);
+    }
   }
 };
 
@@ -253,15 +277,20 @@ onMounted(async () => {
   }
 });
 
-watch(cart, () => {
-  items.value = items.value.map((item) => ({
-    ...item,
-    isAdded: cart.value.some((cartItem) => cartItem.id === item.id),
-  }));
-});
+watch(
+  cart,
+  () => {
+    setTimeout(() => {
+      items.value = items.value.map((item) => ({
+        ...item,
+        isAdded: cart.value.some((cartItem) => cartItem.id === item.id),
+      }));
+    }, 10);
+  },
+  { deep: true }
+);
 
 watch(filters, fetchItems);
-
 </script>
 
 <template>

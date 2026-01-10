@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, watch } from "vue";
+import { ref, computed, watch, onMounted, inject } from "vue";
 
 const props = defineProps({
   id: Number,
@@ -14,11 +14,41 @@ const props = defineProps({
   availableSizes: Array,
 });
 
-const emit = defineEmits(["update:favorite"]);
+const emit = defineEmits(["addToFavorite", "addToCart"]);
 
-const visibleFavoriteButton = Boolean(props.onClickFav);
+const cart = inject("cart");
 const selectedSize = ref(props.availableSizes?.[0] || "");
+
 const localIsFavorite = ref(props.isFavorite);
+const localIsAdded = ref(props.isAdded);
+
+watch(
+  () => props.isFavorite,
+  (newValue) => {
+    localIsFavorite.value = newValue;
+  },
+  { immediate: true }
+);
+
+watch(
+  () => props.isAdded,
+  (newValue) => {
+    localIsAdded.value = newValue;
+  },
+  { immediate: true }
+);
+
+const checkFavoriteFromStorage = () => {
+  const user = JSON.parse(localStorage.getItem("current_user") || "null");
+  if (!user || !props.id) {
+    localIsFavorite.value = false;
+    return;
+  }
+
+  const favoritesKey = `favorites_${user.id}`;
+  const savedFavorites = JSON.parse(localStorage.getItem(favoritesKey) || "[]");
+  localIsFavorite.value = savedFavorites.some((fav) => fav.id === props.id);
+};
 
 watch(selectedSize, (newSize) => {
   if (props.id) {
@@ -29,13 +59,6 @@ watch(selectedSize, (newSize) => {
     localStorage.setItem("selectedSizes", JSON.stringify(savedSizes));
   }
 });
-
-watch(
-  () => props.isFavorite,
-  (newVal) => {
-    localIsFavorite.value = newVal;
-  }
-);
 
 const savedSizes = JSON.parse(localStorage.getItem("selectedSizes") || "{}");
 if (
@@ -59,12 +82,42 @@ const categoryColor = computed(() => {
   }
 });
 
-const handleFavClick = () => {
+const handleFavoriteClick = () => {
   if (props.onClickFav) {
     localIsFavorite.value = !localIsFavorite.value;
     props.onClickFav();
+
+    setTimeout(checkFavoriteFromStorage, 100);
   }
 };
+
+const handleAddToCart = () => {
+  if (props.onClickAdd) {
+    const itemData = {
+      id: props.id,
+      title: props.title,
+      price: props.price,
+      imageUrl: props.imgUrl,
+      category: props.category,
+      selectedSize: selectedSize.value,
+      isAdded: !localIsAdded.value,
+    };
+
+    props.onClickAdd(itemData);
+  }
+};
+
+onMounted(() => {
+  checkFavoriteFromStorage();
+
+  const handleStorageChange = (event) => {
+    if (event.key && event.key.startsWith("favorites_")) {
+      checkFavoriteFromStorage();
+    }
+  };
+
+  window.addEventListener("storage", handleStorageChange);
+});
 </script>
 
 <template>
@@ -80,9 +133,9 @@ const handleFavClick = () => {
     </div>
 
     <img
-      v-if="visibleFavoriteButton"
-      @click="handleFavClick"
-      :src="!localIsFavorite ? '/like-1.svg' : '/like-2.svg'"
+      v-if="onClickFav"
+      @click="handleFavoriteClick"
+      :src="localIsFavorite ? '/like-2.svg' : '/like-1.svg'"
       alt="Добавить в избранное"
       class="absolute top-8 right-8 z-10 w-6 h-6 cursor-pointer hover:scale-110 transition"
     />
@@ -127,8 +180,8 @@ const handleFavClick = () => {
       </div>
       <img
         v-if="onClickAdd"
-        @click="onClickAdd({ ...$props, selectedSize })"
-        :src="!isAdded ? '/plus.svg' : '/checked.svg'"
+        @click="handleAddToCart"
+        :src="localIsAdded ? '/checked.svg' : '/plus.svg'"
         alt="Добавить в корзину"
         class="w-8 h-8 cursor-pointer hover:scale-110 transition"
       />

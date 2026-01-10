@@ -1,97 +1,125 @@
 
-
-const FAVORITES_KEY = "sportshop_user_favorites";
-
-export function getUserFavorites(userId) {
+export const addToFavorites = (userId, item) => {
   try {
-    const allFavorites = JSON.parse(
-      localStorage.getItem(FAVORITES_KEY) || "{}"
-    );
-    return allFavorites[userId] || [];
-  } catch (error) {
-    console.error("Ошибка получения закладок:", error);
-    return [];
-  }
-}
-
-export function addToFavorites(userId, item) {
-  try {
-    const allFavorites = JSON.parse(
-      localStorage.getItem(FAVORITES_KEY) || "{}"
-    );
-    const userFavorites = allFavorites[userId] || [];
-
-    if (!userFavorites.some((fav) => fav.id === item.id)) {
-      userFavorites.push({
-        ...item,
-        addedAt: new Date().toISOString(),
-      });
-
-      allFavorites[userId] = userFavorites;
-      localStorage.setItem(FAVORITES_KEY, JSON.stringify(allFavorites));
+    if (!userId) {
+      console.error("User ID is required");
+      return;
     }
 
-    return userFavorites;
+    const favoritesKey = `favorites_${userId}`;
+    const savedFavorites = JSON.parse(
+      localStorage.getItem(favoritesKey) || "[]"
+    );
+
+    if (!savedFavorites.some((fav) => fav.id === item.id)) {
+      const favoriteItem = {
+        id: item.id,
+        title: item.title,
+        price: item.price,
+        imageUrl: item.imageUrl || item.imgUrl,
+        category: item.category,
+        sizes:
+          item.sizes ||
+          (item.availableSizes ? item.availableSizes.join(",") : ""),
+        addedAt: new Date().toISOString(),
+      };
+
+      savedFavorites.push(favoriteItem);
+      localStorage.setItem(favoritesKey, JSON.stringify(savedFavorites));
+      console.log(
+        `Товар ${item.id} добавлен в избранное пользователя ${userId}`
+      );
+    }
+
+    return savedFavorites;
   } catch (error) {
-    console.error("Ошибка добавления в закладки:", error);
+    console.error("Ошибка при добавлении в избранное:", error);
     return [];
   }
-}
+};
 
-export function removeFromFavorites(userId, itemId) {
+export const removeFromFavorites = (userId, itemId) => {
   try {
-    const allFavorites = JSON.parse(
-      localStorage.getItem(FAVORITES_KEY) || "{}"
-    );
-    const userFavorites = allFavorites[userId] || [];
+    if (!userId) {
+      console.error("User ID is required");
+      return [];
+    }
 
-    const updatedFavorites = userFavorites.filter((fav) => fav.id !== itemId);
-    allFavorites[userId] = updatedFavorites;
-    localStorage.setItem(FAVORITES_KEY, JSON.stringify(allFavorites));
+    const favoritesKey = `favorites_${userId}`;
+    const savedFavorites = JSON.parse(
+      localStorage.getItem(favoritesKey) || "[]"
+    );
+    const updatedFavorites = savedFavorites.filter((fav) => fav.id !== itemId);
+
+    localStorage.setItem(favoritesKey, JSON.stringify(updatedFavorites));
+    console.log(`Товар ${itemId} удален из избранного пользователя ${userId}`);
 
     return updatedFavorites;
   } catch (error) {
-    console.error("Ошибка удаления из закладок:", error);
+    console.error("Ошибка при удалении из избранного:", error);
     return [];
   }
-}
+};
 
-export function isItemInFavorites(userId, itemId) {
+export const getUserFavorites = (userId) => {
   try {
-    const allFavorites = JSON.parse(
-      localStorage.getItem(FAVORITES_KEY) || "{}"
+    if (!userId) {
+      console.error("User ID is required");
+      return [];
+    }
+
+    const favoritesKey = `favorites_${userId}`;
+    const savedFavorites = JSON.parse(
+      localStorage.getItem(favoritesKey) || "[]"
     );
-    const userFavorites = allFavorites[userId] || [];
-    return userFavorites.some((fav) => fav.id === itemId);
+
+    return savedFavorites;
   } catch (error) {
-    console.error("Ошибка проверки закладок:", error);
+    console.error("Ошибка при получении избранного:", error);
+    return [];
+  }
+};
+
+export const isItemInFavorites = (userId, itemId) => {
+  try {
+    if (!userId) return false;
+
+    const favoritesKey = `favorites_${userId}`;
+    const savedFavorites = JSON.parse(
+      localStorage.getItem(favoritesKey) || "[]"
+    );
+
+    return savedFavorites.some((fav) => fav.id === itemId);
+  } catch (error) {
+    console.error("Ошибка при проверке избранного:", error);
     return false;
   }
-}
+};
 
-export function getFavoritesCount(userId) {
+export const getFavoritesCount = (userId) => {
   try {
-    const allFavorites = JSON.parse(
-      localStorage.getItem(FAVORITES_KEY) || "{}"
+    if (!userId) return 0;
+
+    const favoritesKey = `favorites_${userId}`;
+    const savedFavorites = JSON.parse(
+      localStorage.getItem(favoritesKey) || "[]"
     );
-    const userFavorites = allFavorites[userId] || [];
-    return userFavorites.length;
+
+    return savedFavorites.length;
   } catch (error) {
-    console.error("Ошибка получения количества закладок:", error);
+    console.error("Ошибка при получении количества избранного:", error);
     return 0;
   }
-}
+};
 
-export function clearUserFavorites(userId) {
+export const clearUserFavorites = (userId) => {
   try {
-    const allFavorites = JSON.parse(
-      localStorage.getItem(FAVORITES_KEY) || "{}"
-    );
-    delete allFavorites[userId];
-    localStorage.setItem(FAVORITES_KEY, JSON.stringify(allFavorites));
-    return true;
+    if (!userId) return;
+
+    const favoritesKey = `favorites_${userId}`;
+    localStorage.removeItem(favoritesKey);
+    console.log(`Избранное пользователя ${userId} очищено`);
   } catch (error) {
-    console.error("Ошибка очистки закладок:", error);
-    return false;
+    console.error("Ошибка при очистке избранного:", error);
   }
-}
+};
